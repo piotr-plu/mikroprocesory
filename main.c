@@ -20,7 +20,7 @@ volatile uint8_t pomoc = 0b00001100;
 // do przycisku
 #define przycisk 7
 volatile uint8_t klawisz = 0;
-//do wyúwietlacza
+//do wy≈õwietlacza
 #define LCD_DDR DDRB
 #define LCD PORTB
 #define RS 4
@@ -44,9 +44,9 @@ void AVG(uint16_t wartosc, uint16_t srednia){
 ISR(ADC_vect){
 	switch(kanal){
 		case 0:
-		AVG(ADC, srednia_0);
+			AVG(ADC, srednia_0);
 		case 1:
-		AVG(ADC, srednia_1);
+			AVG(ADC, srednia_1);
 	}
 }
 
@@ -54,24 +54,20 @@ ISR(ADC_vect){
 
 // timer do przycisku
 ISR(TIMER0_OVF_vect){
-	if (!(PINB & (1<<przycisk))){ // jeúli przycisk bÍdzie naciúniÍty to bÍdzie zero wiÍc gitÛwa
+	if (!(PINB & (1<<przycisk))){ // je≈õli przycisk bƒôdzie naci≈õniƒôty to bƒôdzie zero wiƒôc git√≥wa
 		switch(klawisz){
 			case 0:
-			klawisz = 1;
-			break;
+				klawisz = 1;
 			case 1:
-			klawisz = 2;
-			break;
+				klawisz = 2;
 		}
 	}
 	else{
 		switch(klawisz){
 			case 3:
-			klawisz = 4;
-			break;
+				klawisz = 4;
 			case 4:
-			klawisz = 0;
-			break;
+				klawisz = 0;
 		}
 	}
 }
@@ -88,8 +84,8 @@ void LCD_zapis(uint8_t dana){
 	LCD |= (1<<E);
 	_delay_us(2);
 	LCD &= ~(1<<E);
+	// do poprawy 
 	_delay_us(45);
-	
 	LCD &= 0xF0;
 	LCD |= dana & 0x0f;
 	LCD |= (1<<E);
@@ -104,6 +100,23 @@ void LCD_napis(char *tab){
 	while (tab[i]){
 		LCD_zapis(tab[i++]);
 	}
+}
+
+void zmiana_lini(uint8_t numer_lini){
+	switch(numer_lini)
+	{
+		case 0:
+			LCD &= ~(1<<RS); //instrukcje
+			LCD_zapis(0x80);
+			LCD |= (1<<RS); //dane
+			break;
+		
+		case 1:
+			LCD &= ~(1<<RS); //instrukcje
+			LCD_zapis(0xc0);
+			LCD |= (1<<RS); //dane
+			break;	
+	}	
 }
 
 void init_LCD(){
@@ -122,13 +135,13 @@ void init_LCD(){
 void init_Volt(){
 	wyborDDR |= 0x0f;
 	ADMUX = (1<<REFS1)|(1<<REFS0); //Vref=2,55V i 1 port
-	ADCSRA = (1<<ADEN)|(1<<ADIE)|(1<<ADATE)|(1<<ADPS2)|(1<<ADPS1)|(1<<ADPS0); //w≥πczenie ADC i preskaler 128
+	ADCSRA = (1<<ADEN)|(1<<ADIE)|(1<<ADATE)|(1<<ADPS2)|(1<<ADPS1)|(1<<ADPS0); //w≈ÇƒÖczenie ADC i preskaler 128
 }
 
 void init_Button(){
-	PORTB |= (1<<przycisk); //odpalenie rezystora polaryzujπcego
+	PORTB |= (1<<przycisk); //odpalenie rezystora polaryzujƒÖcego
 	TCCR0 = (1<<CS02) | (1<<CS00); //prescaler 1024
-	TIMSK = (1<<TOIE0)|(1<<OCIE1A); //w≥πczenie przerwania OVF T0 NIE WIEMY CZY POTRZEBNY JEST TIMER 1
+	TIMSK = (1<<TOIE0)|(1<<OCIE1A); //w≈ÇƒÖczenie przerwania OVF T0 NIE WIEMY CZY POTRZEBNY JEST TIMER 1
 	/////////////
 	TCCR1B=(1<<WGM12)|(1<<CS12);
 	OCR1A = 62500;
@@ -154,32 +167,32 @@ int main(void)
 		if(klawisz == 2){
 			switch(tryb){
 				case 0:
-				tryb += 1;
+					tryb += 1;
 				case 1:
-				clear_LCD();
-				//Wyúwietlenie kana≥u 0
-				LCD_zapis((srednia_0%100/10)+'0');
-				LCD_zapis((srednia_0%10)+'0');
-				//Wywietlenie kana≥u 1
-				tryb += 1;
-				LCD_napis("Tryb_1");
-				break;
+					clear_LCD();
+					//Wy≈õwietlenie kana≈Çu 0
+					LCD_zapis((srednia_0%100/10)+'0');
+					LCD_zapis((srednia_0%10)+'0');
+					//Wywietlenie kana≈Çu 1
+					tryb += 1;
+					LCD_napis("Tryb_1");
+					break;
 				case 2:
-				clear_LCD();
-				//Wyúwietlenie kana≥u 0
-				//Pasek
-				tryb += 1;
-				LCD_napis("Tryb_2");
-				break;
+					clear_LCD();
+					//Wy≈õwietlenie kana≈Çu 0
+					//Pasek
+					tryb += 1;
+					LCD_napis("Tryb_2");
+					break;
 				case 3:
-				clear_LCD();
-				//Wyúwietlenie kana≥u 1
-				//Pasek
-				tryb = 1;
-				LCD_napis("Tryb_3");
-				break;
-			}
-			klawisz = 3;
+					clear_LCD();
+					//Wy≈õwietlenie kana≈Çu 1
+					//Pasek
+					tryb = 1;
+					LCD_napis("Tryb_3");
+					break;
+		}
+		klawisz = 3;
 }
 	}
 }
