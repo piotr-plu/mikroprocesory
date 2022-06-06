@@ -5,28 +5,26 @@
 // do miernika
 #define wyborDDR DDRC
 #define wybor PORTC
-volatile uint16_t srednia_0 = 0;
-volatile uint16_t srednia_1 = 0;
-volatile uint16_t pomiar = 0;
-volatile uint16_t wynik_1[]={0,0,0};
-volatile uint16_t wynik_0[]={0,0,0};
-volatile uint8_t kanal=0;
-volatile uint16_t min =0;
-volatile uint16_t max =0;
-volatile uint8_t pomoc = 0b00001100;
-volatile uint8_t pozycja = 1;
-
-
 // do przycisku
 #define przycisk 7
-volatile uint8_t klawisz = 0;
-
 //do wyświetlacza
 #define LCD_DDR DDRB
 #define LCD PORTB
 #define RS 4
 #define E 5
 
+// zmienne 
+volatile uint16_t srednia_0 = 0;
+volatile uint16_t srednia_1 = 0;
+volatile uint16_t pomiar = 0;
+volatile uint16_t wynik_1 = 0;
+volatile uint16_t wynik_0 = 0;
+volatile uint8_t kanal=0;
+volatile uint16_t min =0;
+volatile uint16_t max =0;
+volatile uint8_t pomoc = 0b00001100;
+volatile uint8_t pozycja = 0;
+volatile uint8_t klawisz = 0;
 
 void LCD_zapis(uint8_t dana){
 	LCD &= 0xf0;
@@ -61,13 +59,13 @@ void LCD_linia(uint8_t numer_lini){
 	switch(numer_lini)
 	{
 		case 0:
-		LCD &= ~(1<<RS); // Ustawienie wyświetlacza w tryby instrukcji
+		LCD &= ~(1<<RS); // Ustawienie LCD w tryby instrukcji
 		LCD_zapis(0x80);
 		LCD |= (1<<RS); //dane
 		break;
 		
 		case 1:
-		LCD &= ~(1<<RS); // Ustawienie wyświetlacza w tryby instrukcji
+		LCD &= ~(1<<RS); // Ustawienie LCD w tryby instrukcji
 		LCD_zapis(0xc0);
 		LCD |= (1<<RS); //dane
 		break;
@@ -107,19 +105,51 @@ void AVG(uint16_t wartosc, uint16_t *srednia){
 	pomiar += wartosc;
 }
 
-
-ISR(ADC_vect){
-	switch(kanal){
-		case 0:
-		AVG(ADC, srednia_0);
-		case 1:
-		AVG(ADC, srednia_1);
-	}
+void ADC_update(){
+		switch(pozycja){
+			//case 0:
+			case 1: //Wyświetlenie obydwu kanałów
+				LCD &= ~(1<<RS); // Ustawienie LCD w tryby instrukcji
+				LCD_zapis(0x86);
+				LCD |= (1<<RS); //dane
+				LCD_zapis(srednia_0);
+				LCD &= ~(1<<RS); // Ustawienie LCD w tryby instrukcji
+				LCD_zapis(0xC6);
+				LCD |= (1<<RS); //dane
+				LCD_zapis(srednia_1);
+				break;
+			case 2: //Wyświetlenie kanału 1
+				LCD &= ~(1<<RS); // Ustawienie LCD w tryby instrukcji
+				LCD_zapis(0x86);
+				LCD |= (1<<RS); //dane
+				LCD_zapis(srednia_0);
+				break;
+			case 3: //Wyświetlenie kanału 2
+				LCD &= ~(1<<RS); // Ustawienie LCD w tryby instrukcji
+				LCD_zapis(0x86);
+				LCD |= (1<<RS); //dane
+				LCD_zapis(srednia_1);
+			break;
+		}
 }
 
 // ADSC - wpisanie 1 rozpoczyna przetwarzanie, po jego zakończeniu pojawia się tam 0
 ISR(TIMER1_COMPA_vect){
 	ADCSRA |= (1<<ADSC);
+	ADC_update();
+}
+
+ISR(ADC_vect){
+	switch(kanal){
+		case 0:
+		srednia_0 = ADC;
+			//AVG(ADC, srednia_0);                           
+		case 1:
+		srednia_1 = 1;
+			//AVG(ADC, srednia_1);
+	}
+	
+	
 }
 
 //  Przerwanie kontrolujące stan przycisku z eliminacja efektu drgania stykow
@@ -145,10 +175,10 @@ ISR(TIMER0_OVF_vect){
 int main(void)
 {
 
-	TCCR1B=(1<<WGM12)|(1<<CS12);
-	OCR1A = 62500;
+	TCCR1B=(1<<WGM12)|(1<<CS12); //WGM12 - tryb pracy CTC ( zerowanie licznika po wykryciu zgodności porównania), CS12 - źródło sygnału taktującego z prescalera 256
+	OCR1A = 62500; //wartość do porównania
 	
-	TCCR0 = (1<<CS02) | (1<<CS00); // Ustawienie prescalera na 1024
+	TCCR0 = (1<<CS02) | (1<<CS00); // Ustawienie prescalera na 1024 dla licznika 0
 	TIMSK = (1<<TOIE0)|(1<<OCIE1A); //włączenie przerwania OVF T0 NIE WIEMY CZY POTRZEBNY JEST TIMER 1
 
 	LCD_init();
@@ -164,30 +194,25 @@ int main(void)
 	while (1)
 	{
 		if(klawisz == 2){
-			switch(pozycja){
-				case 0:
-				pozycja += 1;
-				case 1: //Wyświetlenie obydwu kanałów
-				LCD_czysc();
-				LCD_napis("Kanal 1: ");
-				LCD_linia(1);
-				LCD_napis("Kanal 2: ");
-				LCD_zapis((srednia_0%100/10)+'0');
-				LCD_zapis((srednia_0%10)+'0');
-				pozycja += 1;
-				break;
-				case 2: //Wyświetlenie kanału 1
-				LCD_czysc();
-				LCD_napis("Kanal 1: ");
-				pozycja += 1;
-				break;
-				case 3: //Wyświetlenie kanału 2
-				LCD_czysc();
-				LCD_napis("Kanal 2: ");
-				pozycja = 1;
-				break;
-			}
-			klawisz = 3;
+			if (++pozycja > 3)pozycja = 1;
+	
+		switch(pozycja){
+			case 1: //Wyświetlenie obydwu kanałów
+			LCD_czysc();
+			LCD_napis("CH 0: ");
+			LCD_linia(1);
+			LCD_napis("CH 1: ");
+			break;
+			case 2: //Wyświetlenie kanału 1
+			LCD_czysc();
+			LCD_napis("CH 0: ");
+			break;
+			case 3: //Wyświetlenie kanału 2
+			LCD_czysc();
+			LCD_napis("CH 1: ");
+			break;
 		}
+				klawisz = 3;
+			}
 	}
 }
