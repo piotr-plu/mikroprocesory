@@ -22,7 +22,7 @@ volatile uint16_t wynik_0 = 0;
 volatile uint8_t kanal=0;
 volatile uint16_t min =0;
 volatile uint16_t max =0;
-volatile uint8_t pomoc = 0b00001100;
+volatile uint8_t pomoc = 1.5;
 volatile uint8_t pozycja = 0;
 volatile uint8_t klawisz = 0;
 
@@ -49,27 +49,30 @@ void LCD_napis(char *tab){
 		LCD_zapis(tab[i++]);
 	}
 }
+// Do poprawy wejście funkcji albo musi przyjąć float albo zmienić dokładność na 255/16 = 15.93 - i tu jest problem bo jak damy 16 to pasek nigdy do końca nie dojdzie
+void LCD_pasek(const *srednia){
+	uint8_t ilosc = (1.5) / (0.159375); //TESTOWO WPISANE NA STAŁE
+	uint8_t puste = 16 - ilosc;
+	while(ilosc){
+		LCD_zapis(0xFF);
+		ilosc--;
+	}
+	
+	while(puste){
+		LCD_zapis(0x5F);
+		puste--;
+	}
+}
 void LCD_czysc(){
 	LCD &= ~(1<<RS);
 	LCD_zapis(0x01);
 	_delay_ms(2);
 	LCD |= (1<<RS);
 }
-void LCD_linia(uint8_t numer_lini){
-	switch(numer_lini)
-	{
-		case 0:
+void LCD_adres(uint8_t adres){
 		LCD &= ~(1<<RS); // Ustawienie LCD w tryby instrukcji
-		LCD_zapis(0x80);
+		LCD_zapis(adres);
 		LCD |= (1<<RS); //dane
-		break;
-		
-		case 1:
-		LCD &= ~(1<<RS); // Ustawienie LCD w tryby instrukcji
-		LCD_zapis(0xc0);
-		LCD |= (1<<RS); //dane
-		break;
-	}
 }
 void LCD_init(){
 	LCD_DDR |= 0x3f;
@@ -105,40 +108,37 @@ void AVG(uint16_t wartosc, uint16_t *srednia){
 	pomiar += wartosc;
 }
 
+// Funkcja aktulizująca pomiar i pasek na ekranie
 void ADC_update(){
 		switch(pozycja){
 			//case 0:
 			case 1: //Wyświetlenie obydwu kanałów
-				LCD &= ~(1<<RS); // Ustawienie LCD w tryby instrukcji
-				LCD_zapis(0x86);
-				LCD |= (1<<RS); //dane
+				LCD_adres(0x86);
 				LCD_zapis(srednia_0);
-				LCD &= ~(1<<RS); // Ustawienie LCD w tryby instrukcji
-				LCD_zapis(0xC6);
-				LCD |= (1<<RS); //dane
+				LCD_adres(0xC6);
 				LCD_zapis(srednia_1);
 				break;
 			case 2: //Wyświetlenie kanału 1
-				LCD &= ~(1<<RS); // Ustawienie LCD w tryby instrukcji
-				LCD_zapis(0x86);
-				LCD |= (1<<RS); //dane
+				LCD_adres(0x86);
 				LCD_zapis(srednia_0);
+				LCD_adres(0xC0);
+				LCD_pasek(srednia_0);
 				break;
 			case 3: //Wyświetlenie kanału 2
-				LCD &= ~(1<<RS); // Ustawienie LCD w tryby instrukcji
-				LCD_zapis(0x86);
-				LCD |= (1<<RS); //dane
+				LCD_adres(0x86);
 				LCD_zapis(srednia_1);
+				LCD_adres(0xC0);
+				LCD_pasek(srednia_1);
 			break;
 		}
 }
 
-// ADSC - wpisanie 1 rozpoczyna przetwarzanie, po jego zakończeniu pojawia się tam 0
+// Przerwanie od porównania, rozpoczyna pomiar ADC oraz aktulizuje wartości na ekranie
 ISR(TIMER1_COMPA_vect){
-	ADCSRA |= (1<<ADSC);
+	ADCSRA |= (1<<ADSC); // ADSC - wpisanie 1 rozpoczyna przetwarzanie, po jego zakończeniu pojawia się tam 0
 	ADC_update();
 }
-
+// Przerwanie od końca pomiaru ADC
 ISR(ADC_vect){
 	switch(kanal){
 		case 0:
@@ -152,7 +152,7 @@ ISR(ADC_vect){
 	
 }
 
-//  Przerwanie kontrolujące stan przycisku z eliminacja efektu drgania stykow
+//  Przerwanie od przepełnienia kontrolujące stan przycisku z eliminacja efektu drgania stykow
 ISR(TIMER0_OVF_vect){
 	if (!(PINB & (1<<przycisk))){
 		switch(klawisz){
@@ -188,7 +188,7 @@ int main(void)
 	
 	// Menu powitalne
 	LCD_napis("   Woltomierz");
-	LCD_linia(1);
+	LCD_adres(0xC0);
 	LCD_napis("  Wersja: 0.5");
 	
 	while (1)
@@ -200,7 +200,7 @@ int main(void)
 			case 1: //Wyświetlenie obydwu kanałów
 			LCD_czysc();
 			LCD_napis("CH 0: ");
-			LCD_linia(1);
+			LCD_adres(0xC0);
 			LCD_napis("CH 1: ");
 			break;
 			case 2: //Wyświetlenie kanału 1
