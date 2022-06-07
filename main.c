@@ -13,12 +13,12 @@
 #define RS 4
 #define E 5
 
-// zmienne 
+// zmienne
 volatile uint16_t srednia_0 = 0;
 volatile uint16_t srednia_1 = 0;
 volatile uint16_t pomiar = 0;
-volatile uint16_t wynik_1 = 0;
-volatile uint16_t wynik_0 = 0;
+volatile uint16_t wynik_1[] = {};
+volatile uint16_t wynik_0[4] = {};
 volatile uint8_t kanal=0;
 volatile uint16_t min =0;
 volatile uint16_t max =0;
@@ -70,9 +70,9 @@ void LCD_czysc(){
 	LCD |= (1<<RS);
 }
 void LCD_adres(uint8_t adres){
-		LCD &= ~(1<<RS); // Ustawienie LCD w tryby instrukcji
-		LCD_zapis(adres);
-		LCD |= (1<<RS); //dane
+	LCD &= ~(1<<RS); // Ustawienie LCD w tryby instrukcji
+	LCD_zapis(adres);
+	LCD |= (1<<RS); //dane
 }
 void LCD_init(){
 	LCD_DDR |= 0x3f;
@@ -94,43 +94,67 @@ void ADC_init(){
 void Button_init(){
 	PORTB |= (1<<przycisk); // Wlaczenie rezystora polaryzujacego
 }
-void AVG(uint16_t wartosc, uint16_t *srednia){
+void AVG(uint16_t wartosc){
+	uint16_t srednia = 0;
 	static uint8_t licznik = 0;
-	if(licznik++==16){
-		kanal = ~kanal;
+	
+	if(++licznik==16){
 		licznik = 0;
-		(*srednia) = (pomiar>>4);
-		pomiar = 0;
+		if (kanal == 0){
+			srednia_0 = (pomiar>>4);
+			if(srednia_0>max)max=srednia_0;
+			if(srednia_0<min)min=srednia_0;
+		}
+		else if(kanal == 1){
+			srednia_1 = (pomiar>>4);
+			if(srednia_1>max)max=srednia_1;
+			if(srednia_1<min)min=srednia_1;
+		}
+		kanal = ~kanal;
 		ADMUX &= ~(1>>MUX0);
-		if((*srednia)>max)max=(*srednia);
-		if((*srednia)<min)min=(*srednia);
+		pomiar = 0;
 	}
 	pomiar += wartosc;
 }
 
+ void ADC_wypisz(uint16_t srednia){
+	uint16_t wynik[] = {};
+	srednia = (srednia>>2);
+	wynik[0] = srednia%1000/100;
+	wynik[1] = srednia%1000%100/10;
+	wynik[2] = srednia%1000%100%10;
+	
+	LCD_zapis(wynik[0]+'0');
+	LCD_napis(".");
+	LCD_zapis(wynik[1]+'0');
+	LCD_zapis(wynik[2]+'0');
+	LCD_napis(" V");
+	
+}
+
 // Funkcja aktulizująca pomiar i pasek na ekranie
 void ADC_update(){
-		switch(pozycja){
-			//case 0:
-			case 1: //Wyświetlenie obydwu kanałów
-				LCD_adres(0x86);
-				LCD_zapis(srednia_0);
-				LCD_adres(0xC6);
-				LCD_zapis(srednia_1);
-				break;
-			case 2: //Wyświetlenie kanału 1
-				LCD_adres(0x86);
-				LCD_zapis(srednia_0);
-				LCD_adres(0xC0);
-				LCD_pasek(srednia_0);
-				break;
-			case 3: //Wyświetlenie kanału 2
-				LCD_adres(0x86);
-				LCD_zapis(srednia_1);
-				LCD_adres(0xC0);
-				LCD_pasek(srednia_1);
-			break;
-		}
+	switch(pozycja){
+		//case 0:
+		case 1: //Wyświetlenie obydwu kanałów
+		LCD_adres(0x86);
+		ADC_wypisz(srednia_0);
+		LCD_adres(0xC6);
+		LCD_zapis(srednia_1);
+		break;
+		case 2: //Wyświetlenie kanału 1
+		LCD_adres(0x86);
+		LCD_zapis(srednia_0);
+		LCD_adres(0xC0);
+		LCD_pasek(srednia_0);
+		break;
+		case 3: //Wyświetlenie kanału 2
+		LCD_adres(0x86);
+		LCD_zapis(srednia_1);
+		LCD_adres(0xC0);
+		LCD_pasek(srednia_1);
+		break;
+	}
 }
 
 // Przerwanie od porównania, rozpoczyna pomiar ADC oraz aktulizuje wartości na ekranie
@@ -140,15 +164,16 @@ ISR(TIMER1_COMPA_vect){
 }
 // Przerwanie od końca pomiaru ADC
 ISR(ADC_vect){
-	switch(kanal){
-		case 0:
-		srednia_0 = ADC;
-			//AVG(ADC, srednia_0);                           
-		case 1:
-		srednia_1 = 1;
-			//AVG(ADC, srednia_1);
-	}
+	AVG(ADC);
 	
+	//switch(kanal){
+		//case 0:
+		//pomiar = ADC;
+	//	AVG(ADC, srednia_0);
+		//case 1:
+		//srednia_1 = 1;
+		//AVG(ADC, srednia_1);
+	//}
 	
 }
 
@@ -195,24 +220,24 @@ int main(void)
 	{
 		if(klawisz == 2){
 			if (++pozycja > 3)pozycja = 1;
-	
-		switch(pozycja){
-			case 1: //Wyświetlenie obydwu kanałów
-			LCD_czysc();
-			LCD_napis("CH 0: ");
-			LCD_adres(0xC0);
-			LCD_napis("CH 1: ");
-			break;
-			case 2: //Wyświetlenie kanału 1
-			LCD_czysc();
-			LCD_napis("CH 0: ");
-			break;
-			case 3: //Wyświetlenie kanału 2
-			LCD_czysc();
-			LCD_napis("CH 1: ");
-			break;
-		}
-				klawisz = 3;
+			
+			switch(pozycja){
+				case 1: //Wyświetlenie obydwu kanałów
+				LCD_czysc();
+				LCD_napis("CH 0: ");
+				LCD_adres(0xC0);
+				LCD_napis("CH 1: ");
+				break;
+				case 2: //Wyświetlenie kanału 1
+				LCD_czysc();
+				LCD_napis("CH 0: ");
+				break;
+				case 3: //Wyświetlenie kanału 2
+				LCD_czysc();
+				LCD_napis("CH 1: ");
+				break;
 			}
+			klawisz = 3;
+		}
 	}
 }
