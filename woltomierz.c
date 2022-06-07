@@ -13,18 +13,14 @@
 #define RS 4
 #define E 5
 
-// zmienne
-volatile uint16_t srednia_0 = 0;
-volatile uint16_t srednia_1 = 0;
-volatile uint16_t pomiar = 0;
-volatile uint16_t wynik_1[] = {};
-volatile uint16_t wynik_0[4] = {};
-volatile uint8_t kanal=0;
-volatile uint16_t min =0;
-volatile uint16_t max =0;
-volatile uint8_t pomoc = 1.5;
+// zmienne pomocnicze
 volatile uint8_t pozycja = 0;
 volatile uint8_t klawisz = 0;
+// wartości pomiarów
+volatile uint16_t srednia_0 = 0;
+volatile uint16_t srednia_1 = 0;
+volatile uint16_t min =0;
+volatile uint16_t max =0;
 
 void LCD_zapis(uint8_t dana){
 	LCD &= 0xf0;
@@ -94,27 +90,28 @@ void ADC_init(){
 void Button_init(){
 	PORTB |= (1<<przycisk); // Wlaczenie rezystora polaryzujacego
 }
-void AVG(uint16_t wartosc){
-	//uint16_t srednia = 0;
+void ADC_srednia(uint16_t wartosc){
 	static uint8_t licznik = 0;
+	static uint16_t suma = 0;
+	static uint8_t kanal = 0;
 	
 	if(++licznik==16){
 		licznik = 0;
 		if (kanal == 0){
-			srednia_0 = (pomiar>>4);
+			srednia_0 = (suma>>4);
 			if(srednia_0>max)max=srednia_0;
 			if(srednia_0<min)min=srednia_0;
 		}
 		else if(kanal == 1){
-			srednia_1 = (pomiar>>4);
+			srednia_1 = (suma>>4);
 			if(srednia_1>max)max=srednia_1;
 			if(srednia_1<min)min=srednia_1;
 		}
 		kanal = ~kanal;
 		ADMUX &= ~(1>>MUX0);
-		pomiar = 0;
+		suma = 0;
 	}
-	pomiar += wartosc;
+	suma += wartosc;
 }
 
  void ADC_wypisz(uint16_t srednia){
@@ -133,7 +130,7 @@ void AVG(uint16_t wartosc){
 }
 
 // Funkcja aktulizująca pomiar i pasek na ekranie
-void ADC_update(){
+void ADC_odswiez(){
 	switch(pozycja){
 		//case 0:
 		case 1: //Wyświetlenie obydwu kanałów
@@ -160,11 +157,11 @@ void ADC_update(){
 // Przerwanie od porównania, rozpoczyna pomiar ADC oraz aktulizuje wartości na ekranie
 ISR(TIMER1_COMPA_vect){
 	ADCSRA |= (1<<ADSC); // ADSC - wpisanie 1 rozpoczyna przetwarzanie, po jego zakończeniu pojawia się tam 0
-	ADC_update();
+	ADC_odswiez();
 }
 // Przerwanie od końca pomiaru ADC
 ISR(ADC_vect){
-	AVG(ADC);	
+	ADC_srednia(ADC);	
 }
 
 //  Przerwanie od przepełnienia kontrolujące stan przycisku z eliminacja efektu drgania stykow
