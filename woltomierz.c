@@ -2,58 +2,47 @@
 #define F_CPU 16000000UL
 #include <util/delay.h>
 #include <avr/interrupt.h>
-// do miernika
-#define wyborDDR DDRC
-#define wybor PORTC
-// do przycisku
-#define przycisk 7
-//do wyświetlacza
-#define LCD_DDR DDRB
-#define LCD PORTB
-#define RS 4
-#define E 5
-
+#define LCD_DDR DDRB // magistrala wyświetlacza
+#define LCD PORTB // magistrala wyświetlacza
+#define BTN 7 // port przycisku
+#define RS 4 // port RS do wyświetlacza
+#define E 5 // port E do wyświetlacza
 // zmienne pomocnicze
 volatile uint8_t pozycja = 0;
 volatile uint8_t klawisz = 0;
 // wartości pomiarów
 volatile uint16_t srednia_0 = 0;
 volatile uint16_t srednia_1 = 0;
-volatile uint16_t min =0;
-volatile uint16_t max =0;
+volatile uint16_t min = 0;
+volatile uint16_t max = 0;
 
 void LCD_zapis(uint8_t dana){
-	LCD &= 0xf0;
+	LCD &= 0xF0;
 	LCD |= (dana>>4) & 0x0f;
 	LCD |= (1<<E);
 	_delay_us(2);
 	LCD &= ~(1<<E);
 	_delay_us(45);
-	
 	LCD &= 0xF0;
-	LCD |= dana & 0x0f;
+	LCD |= dana & 0x0F;
 	LCD |= (1<<E);
 	_delay_us(2);
 	LCD &= ~(1<<E);
 	_delay_us(45);
-	
 }
 void LCD_napis(char *tab){
 	uint8_t i = 0;
 	LCD |= (1<<RS);
-	while (tab[i]){
-		LCD_zapis(tab[i++]);
-	}
+	while (tab[i]) LCD_zapis(tab[i++]);
 }
 // Do poprawy wejście funkcji albo musi przyjąć float albo zmienić dokładność na 255/16 = 15.93 - i tu jest problem bo jak damy 16 to pasek nigdy do końca nie dojdzie
 void LCD_pasek(const *srednia){
-	uint8_t ilosc = (1.5) / (0.159375); //TESTOWO WPISANE NA STAŁE
-	uint8_t puste = 16 - ilosc;
+	uint8_t dlugosc = (1.5) / (0.159375); //TESTOWO WPISANE NA STAŁE
+	uint8_t puste = 16 - dlugosc;
 	while(ilosc){
 		LCD_zapis(0xFF);
-		ilosc--;
+		dlugosc--;
 	}
-	
 	while(puste){
 		LCD_zapis(0x5F);
 		puste--;
@@ -71,7 +60,7 @@ void LCD_adres(uint8_t adres){
 	LCD |= (1<<RS); //dane
 }
 void LCD_init(){
-	LCD_DDR |= 0x3f;
+	LCD_DDR |= 0x3F;
 	LCD_DDR |= (1<<E)|(1<<RS); // Ustawienie wyjścia E i RS jako wyjścia
 	LCD &= ~(1<<RS); // Ustawienie wyświetlacza w tryby instrukcji
 	LCD_zapis(0x33); // Ustawienie wyświetlacza w tryb 4 bitowy
@@ -83,18 +72,16 @@ void LCD_init(){
 	_delay_ms(2);
 }
 void ADC_init(){
-	wyborDDR |= 0x0f;
 	ADMUX = (1<<REFS1)|(1<<REFS0)|(0<<MUX0); //Vref=2,55V i 0 port
 	ADCSRA = (1<<ADEN)|(1<<ADIE)|(1<<ADATE)|(1<<ADPS2)|(1<<ADPS1)|(1<<ADPS0); //włączenie ADC i preskaler 128
 }
 void Button_init(){
-	PORTB |= (1<<przycisk); // Wlaczenie rezystora polaryzujacego
+	PORTB |= (1<<BTN); // Wlaczenie rezystora polaryzujacego
 }
-void ADC_srednia(uint16_t wartosc){
+void ADC_srednia(uint16_t odczyt){
 	static uint8_t licznik = 0;
 	static uint16_t suma = 0;
 	static uint8_t kanal = 0;
-	
 	if(++licznik==16){
 		licznik = 0;
 		if (kanal == 0){
@@ -111,7 +98,7 @@ void ADC_srednia(uint16_t wartosc){
 		ADMUX &= ~(1>>MUX0);
 		suma = 0;
 	}
-	suma += wartosc;
+	suma += odczyt;
 }
 
  void ADC_wypisz(uint16_t srednia){
@@ -126,7 +113,6 @@ void ADC_srednia(uint16_t wartosc){
 	LCD_zapis(wynik[1]+'0');
 	LCD_zapis(wynik[2]+'0');
 	LCD_napis(" V");
-	
 }
 
 // Funkcja aktulizująca pomiar i pasek na ekranie
@@ -166,7 +152,7 @@ ISR(ADC_vect){
 
 //  Przerwanie od przepełnienia kontrolujące stan przycisku z eliminacja efektu drgania stykow
 ISR(TIMER0_OVF_vect){
-	if (!(PINB & (1<<przycisk))){
+	if (!(PINB & (1<<BTN))){
 		switch(klawisz){
 			case 0:
 			klawisz = 1;
