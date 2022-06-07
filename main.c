@@ -95,7 +95,7 @@ void Button_init(){
 	PORTB |= (1<<przycisk); // Wlaczenie rezystora polaryzujacego
 }
 void AVG(uint16_t wartosc){
-	uint16_t srednia = 0;
+	//uint16_t srednia = 0;
 	static uint8_t licznik = 0;
 	
 	if(++licznik==16){
@@ -140,17 +140,17 @@ void ADC_update(){
 		LCD_adres(0x86);
 		ADC_wypisz(srednia_0);
 		LCD_adres(0xC6);
-		LCD_zapis(srednia_1);
+		ADC_wypisz(srednia_1);
 		break;
 		case 2: //Wyświetlenie kanału 1
 		LCD_adres(0x86);
-		LCD_zapis(srednia_0);
+		ADC_wypisz(srednia_0);
 		LCD_adres(0xC0);
 		LCD_pasek(srednia_0);
 		break;
 		case 3: //Wyświetlenie kanału 2
 		LCD_adres(0x86);
-		LCD_zapis(srednia_1);
+		ADC_wypisz(srednia_1);
 		LCD_adres(0xC0);
 		LCD_pasek(srednia_1);
 		break;
@@ -164,17 +164,7 @@ ISR(TIMER1_COMPA_vect){
 }
 // Przerwanie od końca pomiaru ADC
 ISR(ADC_vect){
-	AVG(ADC);
-	
-	//switch(kanal){
-		//case 0:
-		//pomiar = ADC;
-	//	AVG(ADC, srednia_0);
-		//case 1:
-		//srednia_1 = 1;
-		//AVG(ADC, srednia_1);
-	//}
-	
+	AVG(ADC);	
 }
 
 //  Przerwanie od przepełnienia kontrolujące stan przycisku z eliminacja efektu drgania stykow
@@ -219,8 +209,7 @@ int main(void)
 	while (1)
 	{
 		if(klawisz == 2){
-			if (++pozycja > 3)pozycja = 1;
-			
+			if (++pozycja > 3)pozycja = 1;		
 			switch(pozycja){
 				case 1: //Wyświetlenie obydwu kanałów
 				LCD_czysc();
