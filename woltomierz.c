@@ -35,11 +35,11 @@ void LCD_napis(char *tab){
 	LCD |= (1<<RS);
 	while (tab[i]) LCD_zapis(tab[i++]);
 }
-// Do poprawy wejście funkcji albo musi przyjąć float albo zmienić dokładność na 255/16 = 15.93 - i tu jest problem bo jak damy 16 to pasek nigdy do końca nie dojdzie
-void LCD_pasek(const *srednia){
-	uint8_t dlugosc = (1.5) / (0.159375); //TESTOWO WPISANE NA STAŁE
+void LCD_pasek(uint16_t srednia){
+	srednia = (srednia>>2);
+	uint8_t dlugosc = (srednia>>4)+1;
 	uint8_t puste = 16 - dlugosc;
-	while(ilosc){
+	while(dlugosc){
 		LCD_zapis(0xFF);
 		dlugosc--;
 	}
@@ -72,7 +72,7 @@ void LCD_init(){
 	_delay_ms(2);
 }
 void ADC_init(){
-	ADMUX = (1<<REFS1)|(1<<REFS0)|(0<<MUX0); //Vref=2,55V i 0 port
+	ADMUX = (1<<REFS1)|(1<<REFS0)|(0<<MUX0); //REFS1, REFS0 - ustawienie wewnętrznego źródła odniesienia na 2,56V; 
 	ADCSRA = (1<<ADEN)|(1<<ADIE)|(1<<ADATE)|(1<<ADPS2)|(1<<ADPS1)|(1<<ADPS0); //włączenie ADC i preskaler 128
 }
 void Button_init(){
@@ -88,11 +88,13 @@ void ADC_srednia(uint16_t odczyt){
 			srednia_0 = (suma>>4);
 			if(srednia_0>max)max=srednia_0;
 			if(srednia_0<min)min=srednia_0;
+			//ADMUX &= (1<<MUX0); // Zmiana portu pomiaru napięcia na port 1
 		}
 		else if(kanal == 1){
 			srednia_1 = (suma>>4);
 			if(srednia_1>max)max=srednia_1;
 			if(srednia_1<min)min=srednia_1;
+			//ADMUX &= (0<<MUX0); // Zmiana portu pomiaru napięcia na port 0
 		}
 		kanal = ~kanal;
 		ADMUX &= ~(1>>MUX0);
@@ -101,7 +103,7 @@ void ADC_srednia(uint16_t odczyt){
 	suma += odczyt;
 }
 
- void ADC_wypisz(uint16_t srednia){
+void ADC_wypisz(uint16_t srednia){
 	uint16_t wynik[] = {};
 	srednia = (srednia>>2);
 	wynik[0] = srednia%1000/100;
@@ -147,7 +149,7 @@ ISR(TIMER1_COMPA_vect){
 }
 // Przerwanie od końca pomiaru ADC
 ISR(ADC_vect){
-	ADC_srednia(ADC);	
+	ADC_srednia(ADC);
 }
 
 //  Przerwanie od przepełnienia kontrolujące stan przycisku z eliminacja efektu drgania stykow
@@ -172,27 +174,24 @@ ISR(TIMER0_OVF_vect){
 
 int main(void)
 {
-
 	TCCR1B=(1<<WGM12)|(1<<CS12); //WGM12 - tryb pracy CTC ( zerowanie licznika po wykryciu zgodności porównania), CS12 - źródło sygnału taktującego z prescalera 256
-	OCR1A = 62500; //wartość do porównania
-	
+	OCR1A = 62500; //wartość do porównania	
 	TCCR0 = (1<<CS02) | (1<<CS00); // Ustawienie prescalera na 1024 dla licznika 0
 	TIMSK = (1<<TOIE0)|(1<<OCIE1A); //włączenie przerwania OVF T0 NIE WIEMY CZY POTRZEBNY JEST TIMER 1
-
 	LCD_init();
 	Button_init();
 	ADC_init();
 	sei();
 	
 	// Menu powitalne
-	LCD_napis("   Woltomierz");
+	LCD_napis("   Voltmeter");
 	LCD_adres(0xC0);
-	LCD_napis("  Wersja: 0.5");
+	LCD_napis("Range: 0 - 2.55V");
 	
 	while (1)
 	{
 		if(klawisz == 2){
-			if (++pozycja > 3)pozycja = 1;		
+			if (++pozycja > 3)pozycja = 1;
 			switch(pozycja){
 				case 1: //Wyświetlenie obydwu kanałów
 				LCD_czysc();
