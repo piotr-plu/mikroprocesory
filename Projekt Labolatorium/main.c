@@ -11,8 +11,6 @@
 // Zmienne pomocnicze
 volatile uint8_t pozycja = 0;
 volatile uint8_t klawisz = 0;
-//volatile uint16_t suma_0 = 0;
-//volatile uint16_t suma_1 = 0;
 
 // Wartości pomiarów
 volatile uint16_t srednia_0 = 0;
@@ -145,9 +143,9 @@ void LCD_czysc(){
 }
 
 void LCD_adres(uint8_t adres){
-	LCD &= ~(1<<RS); // Ustawienie LCD w tryby instrukcji
+	LCD &= ~(1<<RS); 
 	LCD_zapis(adres);
-	LCD |= (1<<RS); //dane
+	LCD |= (1<<RS); 
 }
 
 void LCD_pasek(uint16_t wartosc){
@@ -203,35 +201,6 @@ void ADC_srednia(uint16_t odczyt){
 		licznik = 0;
 	}
 }
-
-//void adc_srednia(uint16_t odczyt){
-	//static uint8_t licznik = 0;
-	//static uint8_t kanal = 0;
-	//if(++licznik==16){
-		//licznik = 0;
-		//if (kanal == 0){
-			//srednia_0 = (suma_0>>4);
-			//if(srednia_0>max)max=srednia_0;
-			//if(srednia_0<min)min=srednia_0;
-			//admux |= (1<<mux0); // zmiana portu pomiaru napięcia na port 1
-			//kanal = 1;
-			//suma_0 = 0;
-		//}
-		//else if(kanal == 1){
-			//srednia_1 = (suma_1>>4);
-			//if(srednia_1>max)max=srednia_1;
-			//if(srednia_1<min)min=srednia_1;
-			//admux &= ~(1<<mux0); // zmiana portu pomiaru napięcia na port 0
-			//kanal = 0;
-			//suma_1 = 0;
-		//}
-	//}
-	//
-	//if (licznik > 1 && kanal == 0) suma_0 += odczyt;
-	//if (licznik > 1 && kanal == 1) suma_1 += odczyt;
-	//
-	//
-//}
 
 void ADC_wypisz(uint16_t srednia){
 	uint16_t wynik[] = {};
