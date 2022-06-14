@@ -11,6 +11,8 @@
 // Zmienne pomocnicze
 volatile uint8_t pozycja = 0;
 volatile uint8_t klawisz = 0;
+volatile uint16_t suma_0 = 0;
+volatile uint16_t suma_1 = 0;
 
 // Wartości pomiarów
 volatile uint16_t srednia_0 = 0;
@@ -63,7 +65,7 @@ ISR(TIMER0_OVF_vect){
 int main(void)
 {
 	TCCR1B = (1<<WGM12)|(1<<CS12); //WGM12 - tryb pracy CTC ( zerowanie licznika po wykryciu zgodności porównania), CS12 - źródło sygnału taktującego z prescalera 256
-	OCR1A = 62500; //wartość do porównania	
+	OCR1A = 62500; //wartość do porównania
 	TCCR0 = (1<<CS02) | (1<<CS00); // Ustawienie prescalera na 1024 dla licznika 0
 	TIMSK = (1<<TOIE0)|(1<<OCIE1A); //włączenie przerwania
 	LCD_init();
@@ -169,27 +171,31 @@ void ADC_init(){
 
 void ADC_srednia(uint16_t odczyt){
 	static uint8_t licznik = 0;
-	static uint16_t suma = 0;
 	static uint8_t kanal = 0;
 	if(++licznik==16){
 		licznik = 0;
 		if (kanal == 0){
-			srednia_0 = (suma>>4);
+			srednia_0 = (suma_0>>4);
 			if(srednia_0>max)max=srednia_0;
 			if(srednia_0<min)min=srednia_0;
 			ADMUX |= (1<<MUX0); // Zmiana portu pomiaru napięcia na port 1
 			kanal = 1;
+			suma_0 = 0;
 		}
 		else if(kanal == 1){
-			srednia_1 = (suma>>4);
+			srednia_1 = (suma_1>>4);
 			if(srednia_1>max)max=srednia_1;
 			if(srednia_1<min)min=srednia_1;
 			ADMUX &= ~(1<<MUX0); // Zmiana portu pomiaru napięcia na port 0
 			kanal = 0;
+			suma_1 = 0;
 		}
-		suma = 0;
 	}
-	suma += odczyt;
+	
+		if (licznik > 1 && kanal == 0) suma_0 += odczyt;
+		if (licznik > 1 && kanal == 1) suma_1 += odczyt;
+	
+	
 }
 
 void ADC_wypisz(uint16_t srednia){
