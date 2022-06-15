@@ -31,14 +31,14 @@ void ADC_wypisz(uint16_t srednia); // Funkcja wypisują wyliczoną średnią na 
 void ADC_odswiez(); // Funkcja aktulizująca wyświetlany wynik oraz pasek z pomiarem
 void Button_init(); // Funkcja inicjalizująca przycisk
 
-// Przerwanie od porównania, rozpoczyna pomiar ADC oraz aktulizuje wartości na ekranie
+// Przerwanie aktulizaujące wyświetlane wartości na ekranie
 ISR(TIMER1_COMPA_vect){
-	ADCSRA |= (1<<ADSC); // ADSC - wpisanie 1 rozpoczyna przetwarzanie, po jego zakończeniu pojawia się tam 0
 	ADC_odswiez();
 }
 // Przerwanie od końca pomiaru ADC
 ISR(ADC_vect){
 	ADC_srednia(ADC);
+	
 }
 //  Przerwanie od przepełnienia kontrolujące stan przycisku z eliminacja efektu drgania stykow
 ISR(TIMER0_OVF_vect){
@@ -165,6 +165,8 @@ void LCD_pasek(uint16_t wartosc){
 void ADC_init(){
 	ADMUX = (1<<REFS1)|(1<<REFS0); //REFS1, REFS0 - ustawienie wewnętrznego źródła odniesienia na 2,56V;
 	ADCSRA = (1<<ADEN)|(1<<ADIE)|(1<<ADATE)|(1<<ADPS2)|(1<<ADPS1)|(1<<ADPS0); //włączenie ADC i preskaler 128
+	ADCSRA |= (1<<ADSC); // ADSC - wpisanie 1 rozpoczyna przetwarzanie, po jego zakończeniu pojawia się tam 0
+	// ADC działa w trybie free running - pomiar zaczyna się automatycznie, nie potrzebuje cyklicznego wpisywaia 1 do rejestru ADCSRA
 }
 
 void ADC_srednia(uint16_t odczyt){
